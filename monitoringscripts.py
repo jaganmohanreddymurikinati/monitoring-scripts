@@ -74,7 +74,7 @@ def update_metric_status(tenant_id, project_id, metric_type, status, message="")
         logging.error(f"Error updating metric status in MongoDB: {e}")
 
 class MonitoringClient:
-    def __init__(self, project_id, tenant_id, kafka_bootstrap_servers="34.71.247.120:9092"):
+    def __init__(self, project_id, tenant_id, kafka_bootstrap_servers="localhost:9092"):
         self.project_id = project_id
         self.tenant_id = tenant_id
         self.client = monitoring_v3.MetricServiceClient()
