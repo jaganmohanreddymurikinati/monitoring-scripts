@@ -14,10 +14,10 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 
 # MongoDB Atlas Connection Setup
 def get_metrics_from_mongo(tenant_id, project_id):
-    # Replace the MongoDB Atlas URI with your actual connection string
+    # MongoDB Atlas URI with our actual connection string
     client = pymongo.MongoClient("mongodb+srv://jagan:Jagan931@cluster0.u70we2h.mongodb.net/organizationDB?retryWrites=true&w=majority")
-    db = client["organizationDB"]  # Replace with your MongoDB database name
-    collection = db["organizations"]  # Replace with your MongoDB collection name
+    db = client["organizationDB"]  # MongoDB database name
+    collection = db["organizations"]  # MongoDB collection name
 
     # Query for the tenant and project
     record = collection.find_one({"organization_id": tenant_id, "project_id": project_id})
@@ -33,7 +33,7 @@ def get_metrics_from_mongo(tenant_id, project_id):
 # Function to convert DatetimeWithNanoseconds to ISO format
 def convert_timestamp_to_iso(timestamp):
     if isinstance(timestamp, datetime):
-        # Ensure the timestamp is in UTC, if not you can use timestamp.astimezone(pytz.utc)
+        # Ensure the timestamp is in UTC,use timestamp.astimezone(pytz.utc)
         timestamp_utc = timestamp.astimezone(pytz.utc)
         
         # Convert to IST by adding 5 hours and 30 minutes to UTC
@@ -49,7 +49,7 @@ def update_metric_status(tenant_id, project_id, metric_type, status, message="")
     try:
         # MongoDB Atlas Connection Setup
         client = pymongo.MongoClient("mongodb+srv://jagan:Jagan931@cluster0.u70we2h.mongodb.net/organizationDB?retryWrites=true&w=majority")
-        db = client["organizationDB"]  # Replace with your MongoDB database name
+        db = client["organizationDB"]  #your MongoDB database name
         collection = db["metric_status"]  # Define a new collection for metric status
         
         # Prepare the status document
@@ -66,7 +66,7 @@ def update_metric_status(tenant_id, project_id, metric_type, status, message="")
         collection.update_one(
             {"metric_type": metric_type, "tenant_id": tenant_id, "project_id": project_id},
             {"$set": status_doc},
-            upsert=True  # Insert a new document if it doesn't exist
+            upsert=True  # Inserting a new document if it doesn't exist
         )
 
         logging.info(f"Updated status for metric {metric_type}: {status}")
@@ -218,12 +218,3 @@ if __name__ == "__main__":
         # Run the scheduler every minute (or as needed)
         scheduler()
         time.sleep(60)  # Sleep for 60 seconds
-    #project_id = "digital-splicer-448505-f3"
-    #tenant_id = "maplelabs"  # Dynamic tenant ID
-    
-    # Initialize Monitoring Client with Kafka
-    #monitoring_client = MonitoringClient(project_id, tenant_id)
-
-    # Fetch and Send Metrics to Kafka concurrently (dynamically based on MongoDB)
-    #print("\n========== FETCHING METRICS ==========")
-    #fetch_metrics_concurrently(monitoring_client)
