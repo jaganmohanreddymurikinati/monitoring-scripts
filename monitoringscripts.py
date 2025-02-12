@@ -74,7 +74,7 @@ def update_metric_status(tenant_id, project_id, metric_type, status, message="")
         logging.error(f"Error updating metric status in MongoDB: {e}")
 
 class MonitoringClient:
-    def __init__(self, project_id, tenant_id, kafka_bootstrap_servers="localhost:9092"):
+    def __init__(self, project_id, tenant_id, kafka_bootstrap_servers="kafka:9092"):
         self.project_id = project_id
         self.tenant_id = tenant_id
         self.client = monitoring_v3.MetricServiceClient()
@@ -151,13 +151,79 @@ def fetch_metrics_concurrently(client, last_n_seconds=600):
         for future in futures:
             future.result()  # This will also raise exceptions if any occurred during execution
 
+# MongoDB Schedule Fetch and Check
+def get_schedules_from_mongo():
+    try:
+        # MongoDB Atlas Connection Setup
+        client = pymongo.MongoClient("mongodb+srv://jagan:Jagan931@cluster0.u70we2h.mongodb.net/organizationDB?retryWrites=true&w=majority")
+        db = client["organizationDB"]
+        collection = db["schedules"]
+
+        # Query to get schedules
+        schedules = collection.find()
+        return schedules
+    except Exception as e:
+        logging.error(f"Error fetching schedules: {e}")
+        return []
+
+def is_schedule_lapsed(schedule):
+    # Get the current time in UTC
+    current_time = datetime.utcnow()
+    
+    # Get the scheduled time
+    schedule_time = schedule["schedule_time"]
+    schedule_interval = schedule["schedule_interval"]
+
+    # Calculate the next execution time by adding the interval to the schedule time
+    next_execution_time = schedule_time + timedelta(seconds=schedule_interval)
+    
+     # Check if the current time is greater than or equal to the next scheduled time
+    if current_time >= next_execution_time:
+        return True
+    return False
+
+def trigger_metric_fetch(project_id, tenant_id):
+    try:
+        # Initialize your MonitoringClient class
+        monitoring_client = MonitoringClient(project_id, tenant_id)
+
+        # Fetch and send metrics to Kafka
+        fetch_metrics_concurrently(monitoring_client)
+        logging.info(f"Metrics fetched for project: {project_id}")
+    except Exception as e:
+        logging.error(f"Error triggering metric fetch for project {project_id}: {e}")
+
+def scheduler():
+    schedules = get_schedules_from_mongo()
+    
+    for schedule in schedules:
+        if is_schedule_lapsed(schedule):
+            # If the schedule has lapsed, trigger the metric fetch
+            logging.info(f"Schedule for project {schedule['project_id']} has lapsed. Fetching metrics...")
+            trigger_metric_fetch(schedule['project_id'], schedule['organization_id'])
+	    # After execution, update the schedule_time in DB to the current time
+            client = pymongo.MongoClient("mongodb+srv://jagan:Jagan931@cluster0.u70we2h.mongodb.net/organizationDB")
+            db = client["organizationDB"]
+            collection = db["schedules"]
+            collection.update_one(
+                {"_id": schedule["_id"]},
+                {"$set": {"schedule_time": datetime.utcnow()}}
+            )
+        else:
+            logging.info(f"Schedule for project {schedule['project_id']} has not lapsed yet.")
+
+
 if __name__ == "__main__":
-    project_id = "digital-splicer-448505-f3"
-    tenant_id = "maplelabs"  # Dynamic tenant ID
+    while True:
+        # Run the scheduler every minute (or as needed)
+        scheduler()
+        time.sleep(60)  # Sleep for 60 seconds
+    #project_id = "digital-splicer-448505-f3"
+    #tenant_id = "maplelabs"  # Dynamic tenant ID
     
     # Initialize Monitoring Client with Kafka
-    monitoring_client = MonitoringClient(project_id, tenant_id)
+    #monitoring_client = MonitoringClient(project_id, tenant_id)
 
     # Fetch and Send Metrics to Kafka concurrently (dynamically based on MongoDB)
-    print("\n========== FETCHING METRICS ==========")
-    fetch_metrics_concurrently(monitoring_client)
+    #print("\n========== FETCHING METRICS ==========")
+    #fetch_metrics_concurrently(monitoring_client)
